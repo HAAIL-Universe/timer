@@ -1,0 +1,20 @@
+{
+  "name": "forgeguard_build_wtl7m5sn",
+  "version": "1.0.0",
+  "description": "Small timer with front end face",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HAAIL-Universe/timer.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/HAAIL-Universe/timer/issues"
+  },
+  "homepage": "https://github.com/HAAIL-Universe/timer#readme"
+}
