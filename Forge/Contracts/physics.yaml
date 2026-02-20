@@ -1,0 +1,203 @@
+---
+info:
+  title: Timer API
+  version: 1.0.0
+  description: |
+    RESTful API for Timer application providing timer lifecycle management.
+    Supports creating timers, starting/stopping them, and retrieving current state.
+    All time calculations are performed server-side to ensure accuracy and consistency.
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns service health status for monitoring and readiness probes
+      auth: none
+      request:
+        body: null
+      response:
+        status: 200
+        content-type: application/json
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+              example: "ok"
+
+  /timers:
+    post:
+      summary: Create a new timer
+      description: |
+        Initializes a new timer instance in stopped state with zero elapsed time.
+        Returns a unique timer ID for subsequent operations.
+      auth: none
+      request:
+        body: null
+      response:
+        status: 201
+        content-type: application/json
+        schema:
+          $ref: '#/schemas/Timer'
+        example:
+          id: "550e8400-e29b-41d4-a716-446655440000"
+          status: "stopped"
+          elapsed_seconds: 0
+          start_time: null
+
+  /timers/{id}:
+    get:
+      summary: Get timer state
+      description: |
+        Retrieves the current state of a timer including status, elapsed time,
+        and start timestamp if running. When timer is running, elapsed_seconds
+        is calculated from start_time to current server time.
+      auth: none
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          description: Timer UUID
+      request:
+        body: null
+      response:
+        status: 200
+        content-type: application/json
+        schema:
+          $ref: '#/schemas/Timer'
+        example:
+          id: "550e8400-e29b-41d4-a716-446655440000"
+          status: "running"
+          elapsed_seconds: 42
+          start_time: "2024-01-15T10:30:00Z"
+      errors:
+        - status: 404
+          description: Timer not found
+          schema:
+            $ref: '#/schemas/Error'
+          example:
+            error: "Timer not found"
+            message: "No timer exists with id 550e8400-e29b-41d4-a716-446655440000"
+
+  /timers/{id}/start:
+    post:
+      summary: Start a timer
+      description: |
+        Transitions timer to running state and records start timestamp.
+        If timer is already running, operation is idempotent and returns current state.
+        Does not reset elapsed_seconds; continues from previous value.
+      auth: none
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          description: Timer UUID
+      request:
+        body: null
+      response:
+        status: 200
+        content-type: application/json
+        schema:
+          $ref: '#/schemas/Timer'
+        example:
+          id: "550e8400-e29b-41d4-a716-446655440000"
+          status: "running"
+          elapsed_seconds: 0
+          start_time: "2024-01-15T10:30:00Z"
+      errors:
+        - status: 404
+          description: Timer not found
+          schema:
+            $ref: '#/schemas/Error'
+          example:
+            error: "Timer not found"
+            message: "No timer exists with id 550e8400-e29b-41d4-a716-446655440000"
+
+  /timers/{id}/stop:
+    post:
+      summary: Stop a timer
+      description: |
+        Transitions timer to stopped state, calculates total elapsed time from
+        start_time to current server time, adds to existing elapsed_seconds,
+        and persists the result. Clears start_time. If timer is already stopped,
+        operation is idempotent and returns current state without modification.
+      auth: none
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          description: Timer UUID
+      request:
+        body: null
+      response:
+        status: 200
+        content-type: application/json
+        schema:
+          $ref: '#/schemas/Timer'
+        example:
+          id: "550e8400-e29b-41d4-a716-446655440000"
+          status: "stopped"
+          elapsed_seconds: 127
+          start_time: null
+      errors:
+        - status: 404
+          description: Timer not found
+          schema:
+            $ref: '#/schemas/Error'
+          example:
+            error: "Timer not found"
+            message: "No timer exists with id 550e8400-e29b-41d4-a716-446655440000"
+
+schemas:
+  Timer:
+    type: object
+    description: |
+      Represents a timer instance with its current state. Elapsed time is
+      always expressed in seconds as an integer. When running, start_time
+      contains ISO 8601 timestamp; when stopped, it is null.
+    properties:
+      id:
+        type: string
+        format: uuid
+        description: Unique identifier for the timer
+      status:
+        type: string
+        enum:
+          - stopped
+          - running
+        description: Current timer state
+      elapsed_seconds:
+        type: integer
+        minimum: 0
+        description: |
+          Total elapsed time in seconds. For running timers, this represents
+          accumulated time from previous sessions. Current session time must
+          be calculated from start_time.
+      start_time:
+        type: string
+        format: date-time
+        nullable: true
+        description: |
+          ISO 8601 timestamp when timer was last started. Null when status is stopped.
+    required:
+      - id
+      - status
+      - elapsed_seconds
+      - start_time
+
+  Error:
+    type: object
+    description: Standard error response structure
+    properties:
+      error:
+        type: string
+        description: Short error identifier
+      message:
+        type: string
+        description: Human-readable error description
+    required:
+      - error
+      - message

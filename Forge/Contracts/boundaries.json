@@ -1,0 +1,70 @@
+{
+  "description": "Architectural boundaries for Timer application. Enforces clean separation between UI presentation, business logic (timer state management), and utilities. Prevents circular dependencies and ensures unidirectional data flow from core logic to UI.",
+  "layers": [
+    {
+      "name": "UI Layer",
+      "glob": "src/components/**/*.{js,jsx,ts,tsx,vue}",
+      "forbidden": [
+        {
+          "pattern": "^\\.\\./(utils|lib)/",
+          "reason": "UI components should not directly import utilities; use composition or props instead"
+        },
+        {
+          "pattern": "import.*from.*['\"]fs['\"]",
+          "reason": "UI layer must not perform file system operations"
+        },
+        {
+          "pattern": "import.*from.*['\"]path['\"]",
+          "reason": "UI layer must not access filesystem paths"
+        }
+      ]
+    },
+    {
+      "name": "Timer Logic Layer",
+      "glob": "src/{logic,core,timer}/**/*.{js,ts}",
+      "forbidden": [
+        {
+          "pattern": "import.*from.*(react|vue|angular)",
+          "reason": "Core timer logic must be framework-agnostic and reusable"
+        },
+        {
+          "pattern": "document\\.|window\\.",
+          "reason": "Core logic must not directly manipulate DOM or browser globals"
+        },
+        {
+          "pattern": "import.*from.*['\"]@/components",
+          "reason": "Logic layer must not depend on UI components"
+        }
+      ]
+    },
+    {
+      "name": "Utilities Layer",
+      "glob": "src/utils/**/*.{js,ts}",
+      "forbidden": [
+        {
+          "pattern": "import.*from.*['\"]@/components",
+          "reason": "Utilities must not import UI components"
+        },
+        {
+          "pattern": "import.*from.*['\"]@/(logic|core)",
+          "reason": "Utilities should be standalone helpers without business logic dependencies"
+        },
+        {
+          "pattern": "import.*from.*(react|vue|angular)",
+          "reason": "Utilities must be framework-agnostic"
+        }
+      ]
+    },
+    {
+      "name": "Application Root",
+      "glob": "src/{index,main,app}.{js,ts,jsx,tsx}",
+      "forbidden": [
+        {
+          "pattern": "import.*from.*['\"]\\.\\./(test|spec)",
+          "reason": "Application entry points must not import test files"
+        }
+      ]
+    }
+  ],
+  "known_violations": []
+}
