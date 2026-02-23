@@ -1,0 +1,407 @@
+{
+  "stack": {
+    "auth": null,
+    "database": "sqlite",
+    "frontend": "react",
+    "test_framework": "jest",
+    "llm_integration": null,
+    "backend_language": "javascript",
+    "backend_framework": "express"
+  },
+  "phases": [
+    {
+      "name": "Backend API",
+      "number": 0,
+      "purpose": "Scaffold the Express/SQLite backend with all timer REST endpoints, repository, service, and error handling so the API is fully functional and testable in isolation.",
+      "exemptions": [],
+      "file_manifest": [
+        {
+          "path": "backend/package.json",
+          "layer": "infrastructure",
+          "action": "create",
+          "description": "Node.js package manifest with express, uuid, better-sqlite3, cors, dotenv, morgan, jest, supertest dependencies"
+        },
+        {
+          "path": "backend/.env.example",
+          "layer": "infrastructure",
+          "action": "create",
+          "description": "Example environment variables file documenting PORT, NODE_ENV, DB_PATH, CORS_ORIGIN"
+        },
+        {
+          "path": "backend/src/app.js",
+          "layer": "entrypoint",
+          "action": "create",
+          "description": "Express app factory: mounts cors, morgan, json middleware, router, and global error handler"
+        },
+        {
+          "path": "backend/src/server.js",
+          "layer": "entrypoint",
+          "action": "create",
+          "description": "HTTP server entry point; loads dotenv, creates app, listens on PORT"
+        },
+        {
+          "path": "backend/src/db/connection.js",
+          "layer": "infrastructure",
+          "action": "create",
+          "description": "Opens better-sqlite3 connection, runs CREATE TABLE IF NOT EXISTS for timers, exports db instance"
+        },
+        {
+          "path": "backend/src/models/timer.js",
+          "layer": "model",
+          "action": "create",
+          "description": "Maps raw DB row to Timer domain object; computes live elapsed_seconds for running timers"
+        },
+        {
+          "path": "backend/src/repositories/timerRepository.js",
+          "layer": "repo",
+          "action": "create",
+          "description": "CRUD methods: create, findById, update \u2014 wraps better-sqlite3 prepared statements"
+        },
+        {
+          "path": "backend/src/services/timerService.js",
+          "layer": "service",
+          "action": "create",
+          "description": "Business logic: createTimer, startTimer (idempotent), stopTimer (idempotent, accumulates elapsed), getTimer"
+        },
+        {
+          "path": "backend/src/routes/timerRoutes.js",
+          "layer": "router",
+          "action": "create",
+          "description": "Express router for POST /timers, GET /timers/:id, POST /timers/:id/start, POST /timers/:id/stop"
+        },
+        {
+          "path": "backend/src/routes/healthRoutes.js",
+          "layer": "router",
+          "action": "create",
+          "description": "GET /health handler returning {status: 'ok', timestamp: Date.now()}"
+        },
+        {
+          "path": "backend/src/middleware/errorHandler.js",
+          "layer": "infrastructure",
+          "action": "create",
+          "description": "Global Express error handler; formats 400/404/500 as JSON {error, message}"
+        },
+        {
+          "path": "backend/src/middleware/validateUuid.js",
+          "layer": "infrastructure",
+          "action": "create",
+          "description": "Middleware that validates :id param is a valid UUID v4; returns 400 otherwise"
+        },
+        {
+          "path": "backend/tests/timers.test.js",
+          "layer": "test",
+          "action": "create",
+          "description": "Supertest integration tests covering create, start, stop, get, idempotency, and 404 scenarios"
+        },
+        {
+          "path": "backend/jest.config.js",
+          "layer": "infrastructure",
+          "action": "create",
+          "description": "Jest configuration pointing to tests directory with Node test environment"
+        }
+      ],
+      "wires_from_phase": null,
+      "acceptance_criteria": [
+        {
+          "id": "AC-0-1",
+          "test_hint": "backend/tests/timers.test.js or curl http://localhost:3000/health",
+          "description": "GET /health returns 200 with {status: 'ok'}"
+        },
+        {
+          "id": "AC-0-2",
+          "test_hint": "backend/tests/timers.test.js",
+          "description": "POST /timers returns 201 with timer object: status='stopped', elapsed_seconds=0, start_time=null, valid UUID id"
+        },
+        {
+          "id": "AC-0-3",
+          "test_hint": "backend/tests/timers.test.js",
+          "description": "POST /timers/:id/start transitions timer to status='running' and sets start_time; calling again is idempotent"
+        },
+        {
+          "id": "AC-0-4",
+          "test_hint": "backend/tests/timers.test.js",
+          "description": "POST /timers/:id/stop transitions timer to status='stopped', persists accumulated elapsed_seconds, clears start_time; calling again is idempotent"
+        },
+        {
+          "id": "AC-0-5",
+          "test_hint": "backend/tests/timers.test.js",
+          "description": "GET /timers/:id for a running timer returns elapsed_seconds computed from start_time to current server time"
+        },
+        {
+          "id": "AC-0-6",
+          "test_hint": "backend/tests/timers.test.js",
+          "description": "GET /timers/:id with non-existent ID returns 404 JSON error; invalid UUID format returns 400"
+        },
+        {
+          "id": "AC-0-7",
+          "test_hint": "cd backend && npm test",
+          "description": "npm test passes all Jest/Supertest tests with no failures"
+        },
+        {
+          "id": "AC-0-8",
+          "test_hint": "cd backend && cp .env.example .env && npm install && npm run dev",
+          "description": "Server starts with npm run dev and database file is auto-created at DB_PATH on first run"
+        }
+      ],
+      "schema_tables_claimed": [
+        "timers"
+      ]
+    },
+    {
+      "name": "Frontend UI",
+      "number": 1,
+      "purpose": "Build the React/Vite single-page timer interface with API integration, local polling, localStorage persistence, and full styling per the UI contract.",
+      "exemptions": [],
+      "file_manifest": [
+        {
+          "path": "frontend/package.json",
+          "layer": "infrastructure",
+          "action": "create",
+          "description": "Vite + React project manifest with react, react-dom, axios dependencies"
+        },
+        {
+          "path": "frontend/vite.config.js",
+          "layer": "infrastructure",
+          "action": "create",
+          "description": "Vite config with React plugin; dev server proxy /api to backend on port 3000"
+        },
+        {
+          "path": "frontend/.env.example",
+          "layer": "infrastructure",
+          "action": "create",
+          "description": "Documents VITE_API_BASE_URL env variable defaulting to http://localhost:3000"
+        },
+        {
+          "path": "frontend/index.html",
+          "layer": "entrypoint",
+          "action": "create",
+          "description": "HTML shell with viewport meta, root div, and script entry point"
+        },
+        {
+          "path": "frontend/src/main.jsx",
+          "layer": "entrypoint",
+          "action": "create",
+          "description": "React DOM render root, mounts App into #root"
+        },
+        {
+          "path": "frontend/src/App.jsx",
+          "layer": "router",
+          "action": "create",
+          "description": "Root app component; manages timerId, elapsedSeconds, isRunning, isLoading, error state; orchestrates API calls and polling"
+        },
+        {
+          "path": "frontend/src/api/timerApi.js",
+          "layer": "infrastructure",
+          "action": "create",
+          "description": "Axios-based API client: createTimer, getTimer, startTimer, stopTimer targeting VITE_API_BASE_URL"
+        },
+        {
+          "path": "frontend/src/utils/formatTime.js",
+          "layer": "infrastructure",
+          "action": "create",
+          "description": "Pure utility: converts integer elapsed seconds to MM:SS or HH:MM:SS string"
+        },
+        {
+          "path": "frontend/src/components/TimerDisplay.jsx",
+          "layer": "infrastructure",
+          "action": "create",
+          "description": "Renders formatted elapsed time in monospace 72px font with aria-live='polite' for accessibility"
+        },
+        {
+          "path": "frontend/src/components/TimerButton.jsx",
+          "layer": "infrastructure",
+          "action": "create",
+          "description": "Toggle Start/Stop button; disabled during API calls; aria-label reflects current action"
+        },
+        {
+          "path": "frontend/src/components/StatusIndicator.jsx",
+          "layer": "infrastructure",
+          "action": "create",
+          "description": "Small text indicator showing Running (green) or Stopped (neutral) based on status prop"
+        },
+        {
+          "path": "frontend/src/components/ErrorMessage.jsx",
+          "layer": "infrastructure",
+          "action": "create",
+          "description": "Conditionally renders error string with role='alert' for screen reader announcement"
+        },
+        {
+          "path": "frontend/src/App.css",
+          "layer": "infrastructure",
+          "action": "create",
+          "description": "Global styles: centered layout, timer-card, color palette, typography, button states per UI contract"
+        },
+        {
+          "path": "frontend/src/index.css",
+          "layer": "infrastructure",
+          "action": "create",
+          "description": "CSS reset and body defaults: background #FAFAFA, system font stack, box-sizing border-box"
+        }
+      ],
+      "wires_from_phase": 0,
+      "acceptance_criteria": [
+        {
+          "id": "AC-1-1",
+          "test_hint": "cd frontend && npm install && npm run dev",
+          "description": "npm run dev starts Vite dev server; page loads with timer display showing 00:00 and Start button"
+        },
+        {
+          "id": "AC-1-2",
+          "test_hint": "Manual browser test against running backend",
+          "description": "Clicking Start creates a new timer (POST /timers then POST /timers/:id/start), button changes to Stop, display begins incrementing every second"
+        },
+        {
+          "id": "AC-1-3",
+          "test_hint": "Manual browser test; observe network tab",
+          "description": "Display increments locally every 1 second while running, and syncs with server state via GET /timers/:id every 10 seconds"
+        },
+        {
+          "id": "AC-1-4",
+          "test_hint": "Manual browser test",
+          "description": "Clicking Stop calls POST /timers/:id/stop, display freezes at final elapsed_seconds from server, button changes to Start"
+        },
+        {
+          "id": "AC-1-5",
+          "test_hint": "Manual: start timer, refresh page, verify time continues from correct value",
+          "description": "Timer ID is stored in localStorage; page refresh restores the same timer state without creating a new timer"
+        },
+        {
+          "id": "AC-1-6",
+          "test_hint": "Manual: click rapidly; no duplicate API calls in network tab",
+          "description": "Button is disabled during pending API calls preventing double-submission"
+        },
+        {
+          "id": "AC-1-7",
+          "test_hint": "Manual: stop backend server, click Start, verify error message appears",
+          "description": "API failure shows inline error message below button with no uncaught JS errors in console"
+        },
+        {
+          "id": "AC-1-8",
+          "test_hint": "Chrome DevTools mobile emulation at 320px",
+          "description": "UI is usable at 320px viewport width; timer display and button remain visible and centered"
+        }
+      ],
+      "schema_tables_claimed": []
+    },
+    {
+      "name": "Documentation & Project Polish",
+      "number": 2,
+      "purpose": "Produce the README and root-level project configuration that enables a new user to clone, install, and run both services locally in under 2 minutes.",
+      "exemptions": [],
+      "file_manifest": [
+        {
+          "path": "README.md",
+          "layer": "infrastructure",
+          "action": "create",
+          "description": "Full project README: description, features, tech stack, architecture, local npm-based setup, usage, API reference, project structure tree"
+        },
+        {
+          "path": ".gitignore",
+          "layer": "infrastructure",
+          "action": "create",
+          "description": "Root gitignore covering node_modules, .env, *.db, dist, .DS_Store for both backend and frontend"
+        }
+      ],
+      "wires_from_phase": 1,
+      "acceptance_criteria": [
+        {
+          "id": "AC-2-1",
+          "test_hint": "Manual review of README.md",
+          "description": "README.md contains: project description, features list, tech stack table, architecture overview, prerequisites, step-by-step local setup (npm install + npm run dev for each service), usage guide, API endpoint reference, and project structure tree"
+        },
+        {
+          "id": "AC-2-2",
+          "test_hint": "Manual walkthrough of README setup steps in a clean directory",
+          "description": "A developer can follow README instructions from scratch (clone, install, run) and reach a working timer in the browser without any additional undocumented steps"
+        },
+        {
+          "id": "AC-2-3",
+          "test_hint": "git status after npm install confirms those paths are untracked",
+          "description": ".gitignore prevents node_modules, .env files, SQLite .db files, and build artifacts from being tracked by git"
+        }
+      ],
+      "schema_tables_claimed": []
+    }
+  ],
+  "summary": {
+    "mode": "greenfield",
+    "one_liner": "A minimal web-based timer app with a Node/Express/SQLite backend API and a React/Vite frontend for start, stop, and elapsed-time tracking.",
+    "key_constraints": [
+      "MINI-BUILD: no auth, no user management, no Docker files \u2014 public unauthenticated endpoints only",
+      "All elapsed-time calculations must be performed server-side (blueprint core invariant)",
+      "Timer state transitions are idempotent: start on running or stop on stopped returns current state unchanged",
+      "timers table is the only schema table; claimed exclusively in Phase 0",
+      "Frontend polls GET /timers/:id every 10 seconds to sync server state; increments display locally every 1 second",
+      "Timer ID persisted in localStorage for session continuity across page refreshes",
+      "No Docker, no Dockerfile, no docker-compose.yml \u2014 dev workflow is npm install + npm run dev",
+      "Backend uses UUID v4 for timer IDs; UUIDs validated on all /timers/:id routes (400 on invalid format)",
+      "UI layer must not import from fs, path, or framework-agnostic core logic modules directly"
+    ],
+    "stack_rationale": "Node.js + Express provides a lightweight, zero-boilerplate REST API layer; better-sqlite3 gives embedded persistence with no external DB service required for local dev. React + Vite delivers fast HMR and a minimal component model ideal for a single-page timer UI.",
+    "missing_contracts": [],
+    "existing_contracts": [
+      "blueprint.md",
+      "stack.md",
+      "schema.md",
+      "manifesto.md",
+      "physics.yaml",
+      "boundaries.json",
+      "ui.md",
+      "phases.md"
+    ],
+    "boot_script_required": false
+  },
+  "metadata": {
+    "generated_at": "2026-02-23T19:52:37.689860+00:00",
+    "project_name": "timer",
+    "planner_model": "claude-sonnet-4-6",
+    "schema_version": "1.0"
+  },
+  "contract_refs": [
+    {
+      "note": "Server-side elapsed time calculation, idempotent start/stop, stateless API design enforced in timerService.js",
+      "section": "\u00a7 Core Invariants",
+      "contract": "blueprint.md"
+    },
+    {
+      "note": "Defines all 5 endpoints (GET /health, POST /timers, GET /timers/:id, POST /timers/:id/start, POST /timers/:id/stop) implemented in Phase 0 routes",
+      "section": "paths",
+      "contract": "physics.yaml"
+    },
+    {
+      "note": "timers DDL (id UUID, status VARCHAR, start_time TIMESTAMP, elapsed_seconds INTEGER, created_at, updated_at) claimed in Phase 0 via db/connection.js",
+      "section": "\u00a7 timers table",
+      "contract": "schema.md"
+    },
+    {
+      "note": "Node 20 + Express 4.18 + better-sqlite3 backend; React 18 + Vite 5 + axios frontend; env vars in .env.example files",
+      "section": "\u00a7 Backend / \u00a7 Frontend / \u00a7 Environment Variables",
+      "contract": "stack.md"
+    },
+    {
+      "note": "Four components (TimerDisplay, TimerButton, StatusIndicator, ErrorMessage), color palette, 72px monospace display, polling strategy all implemented in Phase 1",
+      "section": "\u00a7 3 Component List / \u00a7 4 Visual Style / \u00a7 5 Key User Flows",
+      "contract": "ui.md"
+    },
+    {
+      "note": "src/components must not import from fs or path; all API calls routed through src/api/timerApi.js",
+      "section": "UI Layer forbidden imports",
+      "contract": "boundaries.json"
+    },
+    {
+      "note": "Mini-build focus: no Docker, no auth, no analytics \u2014 ruthless simplicity enforced across all phases",
+      "section": "\u00a7 3 Proof-of-Concept Discipline",
+      "contract": "manifesto.md"
+    }
+  ],
+  "required_contracts": [
+    "blueprint.md",
+    "stack.md",
+    "schema.md",
+    "physics.yaml",
+    "boundaries.json",
+    "ui.md",
+    "phases.md",
+    "manifesto.md"
+  ]
+}
